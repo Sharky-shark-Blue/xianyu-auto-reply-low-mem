@@ -1,0 +1,37 @@
+# Scheduler 精简版 Dockerfile（无 Chromium）
+# 基于 scheduler/Dockerfile.local 改造，移除 Playwright 浏览器安装
+
+FROM python:3.11-slim
+
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || \
+    sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list 2>/dev/null || true
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y curl ca-certificates \
+    && update-ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY common /app/common
+COPY scheduler /app/scheduler
+COPY launcher /app/launcher
+
+RUN python -c "\
+import tomllib; \
+deps = tomllib.load(open('/app/scheduler/pyproject.toml','rb')).get('project',{}).get('dependencies',[]); \
+open('/tmp/requirements.txt','w').write('\n'.join(deps))" && \
+    pip install --no-cache-dir -r /tmp/requirements.txt
+
+# 不安装 Playwright 浏览器
+# RUN python -m playwright install --with-deps chromium
+
+RUN mkdir -p /app/scheduler/logs
+
+EXPOSE 8091
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+ENV TZ=Asia/Shanghai
+
+CMD ["python", "scheduler/main.py"]

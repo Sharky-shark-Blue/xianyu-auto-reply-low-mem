@@ -1,0 +1,40 @@
+# Backend-Web 精简版 Dockerfile（无 Chromium）
+# 用于 192.168.1.103 轻量部署：商品搜索/扫码登录通过 nginx 分流到 Windows 27
+# 基于 backend-web/Dockerfile.local 改造，移除 Playwright 浏览器安装
+
+FROM python:3.11-slim
+
+# 配置国内镜像源
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || \
+    sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list 2>/dev/null || true
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y curl ca-certificates \
+    && update-ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY common /app/common
+COPY backend-web /app/backend-web
+COPY launcher /app/launcher
+
+RUN python -c "\
+import tomllib; \
+deps = tomllib.load(open('/app/backend-web/pyproject.toml','rb')).get('project',{}).get('dependencies',[]); \
+open('/tmp/requirements.txt','w').write('\n'.join(deps))" && \
+    pip install --no-cache-dir -r /tmp/requirements.txt
+
+# 不安装 Playwright 浏览器 —— Chromium 相关请求由 nginx 分流到 27
+# 若需要恢复，取消下一行注释：
+# RUN python -m playwright install --with-deps chromium
+
+RUN mkdir -p /app/backend-web/logs /app/static/uploads
+
+EXPOSE 8089
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+ENV TZ=Asia/Shanghai
+
+CMD ["python", "backend-web/main.py"]

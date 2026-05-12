@@ -18,6 +18,9 @@
 **/.venv/
 **/env/
 **/ENV/
+# 例外：部署配置中的 env 目录（只含 *.env.example 模板，不含真实凭据）
+!deploy/**/env/
+!deploy/**/env/*.example
 
 # 字节码缓存
 **/__pycache__/

@@ -1,0 +1,33 @@
+; ===== stunnel 客户端配置（Windows 27） =====
+; 放置位置：C:\Program Files (x86)\stunnel\config\stunnel.conf
+; 安装 stunnel：https://www.stunnel.org/downloads.html
+; 安装后：在开始菜单 → stunnel → "Install stunnel service" 注册为 Windows 服务
+;         然后 Start stunnel service
+;
+; 验证（命令行）：
+;   mysql -h 127.0.0.1 -P 3306 -u <USER> -p
+;   redis-cli -h 127.0.0.1 -p 6380 -a <PWD> PING
+
+; 全局
+debug = 4
+output = stunnel.log
+
+; ----- TiDB Cloud Serverless -----
+[tidb]
+client = yes
+accept = 127.0.0.1:3306
+connect = <TIDB_HOST>:<TIDB_PORT>
+; Windows 无系统级 CA 捆绑包，将 CA 证书放到 config 目录并引用：
+CAfile = tidb-ca.pem
+verifyChain = yes
+checkHost = <TIDB_HOST>
+
+; ----- Upstash Redis -----
+[upstash]
+client = yes
+accept = 127.0.0.1:6380
+connect = <UPSTASH_HOST>:<UPSTASH_PORT>
+; 复用 TiDB 的 CA 或单独下载 Let's Encrypt ISRG Root X1
+CAfile = tidb-ca.pem
+verifyChain = yes
+checkHost = <UPSTASH_HOST>

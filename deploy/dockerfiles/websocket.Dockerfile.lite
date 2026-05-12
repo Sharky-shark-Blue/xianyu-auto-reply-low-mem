@@ -1,0 +1,39 @@
+# WebSocket 精简版 Dockerfile（无 Chromium）
+# 基于 websocket/Dockerfile.local 改造，移除 Playwright 浏览器及其系统库
+# 注意：Cookie 刷新若依赖浏览器将不可用，需通过 27 上的 backend-web 处理
+
+FROM python:3.11-slim
+
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || \
+    sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list 2>/dev/null || true
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
+WORKDIR /app
+
+# 仅保留基础工具，不装 Chromium 所需的 libnss3 等庞大依赖
+RUN apt-get update && apt-get install -y curl ca-certificates \
+    && update-ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY common /app/common
+COPY websocket /app/websocket
+COPY launcher /app/launcher
+
+RUN python -c "\
+import tomllib; \
+deps = tomllib.load(open('/app/websocket/pyproject.toml','rb')).get('project',{}).get('dependencies',[]); \
+open('/tmp/requirements.txt','w').write('\n'.join(deps))" && \
+    pip install --no-cache-dir -r /tmp/requirements.txt
+
+# 不安装 Playwright 浏览器
+# RUN python -m playwright install chromium
+
+RUN mkdir -p /app/websocket/logs /app/static /app/browser_data
+
+EXPOSE 8090
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+ENV TZ=Asia/Shanghai
+
+CMD ["python", "websocket/main.py"]

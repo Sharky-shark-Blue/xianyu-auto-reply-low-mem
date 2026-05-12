@@ -1,0 +1,37 @@
+; ===== stunnel 客户端配置（Linux 103） =====
+; 应用层以明文连接 127.0.0.1，stunnel 加 TLS 转发到云端
+; 放置位置：/etc/stunnel/xianyu.conf
+; 配合 /etc/default/stunnel4 中 ENABLED=1 后：
+;   systemctl enable --now stunnel4
+; 启动检查：
+;   mysql -h 127.0.0.1 -P 3306 -u <USER> -p
+;   redis-cli -h 127.0.0.1 -p 6380 -a <PWD> PING
+
+; 全局设置
+pid = /var/run/stunnel4/xianyu.pid
+output = /var/log/stunnel4/xianyu.log
+debug = 4
+setuid = stunnel4
+setgid = stunnel4
+
+; ----- TiDB Cloud Serverless -----
+; TiDB Cloud 使用系统 CA（Let's Encrypt），建议 verifyChain + checkHost 防中间人
+[tidb]
+client = yes
+accept = 127.0.0.1:3306
+connect = <TIDB_HOST>:<TIDB_PORT>
+CAfile = /etc/ssl/certs/ca-certificates.crt
+verifyChain = yes
+checkHost = <TIDB_HOST>
+; 如 TiDB 下发专用 CA，改为：
+;   CAfile = /etc/stunnel/tidb-ca.pem
+
+; ----- Upstash Redis -----
+; Upstash 使用 Let's Encrypt 证书
+[upstash]
+client = yes
+accept = 127.0.0.1:6380
+connect = <UPSTASH_HOST>:<UPSTASH_PORT>
+CAfile = /etc/ssl/certs/ca-certificates.crt
+verifyChain = yes
+checkHost = <UPSTASH_HOST>

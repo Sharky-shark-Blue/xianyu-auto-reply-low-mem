@@ -1,0 +1,86 @@
+# 103 Linux 部署 docker-compose
+# 使用前：
+#   1) 复制 env/*.env.example → env/*.env 并填入 TiDB/Upstash 凭据
+#   2) 启动宿主机 stunnel 服务（系统级，不在此 compose 管理）
+#   3) 将 frontend 构建产物放到 ./frontend-dist/
+#   4) docker compose build && docker compose up -d
+#
+# 所有容器 network_mode: host，以便直连宿主机 stunnel 的 127.0.0.1:3306 / 127.0.0.1:6380
+
+services:
+  backend-web:
+    build:
+      context: ../..
+      dockerfile: deploy/dockerfiles/backend-web.Dockerfile.lite
+    image: xianyu-backend-web:lite
+    container_name: xianyu-backend-web
+    env_file: ./env/backend-web.env
+    network_mode: host
+    restart: always
+    mem_limit: 256m
+    cpus: '0.5'
+    volumes:
+      - backend_web_logs:/app/backend-web/logs
+      - static_files:/app/static
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8089/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  websocket:
+    build:
+      context: ../..
+      dockerfile: deploy/dockerfiles/websocket.Dockerfile.lite
+    image: xianyu-websocket:lite
+    container_name: xianyu-websocket
+    env_file: ./env/websocket.env
+    network_mode: host
+    restart: always
+    mem_limit: 200m
+    cpus: '0.5'
+    volumes:
+      - websocket_logs:/app/websocket/logs
+      - static_files:/app/static
+    depends_on:
+      backend-web:
+        condition: service_healthy
+
+  scheduler:
+    build:
+      context: ../..
+      dockerfile: deploy/dockerfiles/scheduler.Dockerfile.lite
+    image: xianyu-scheduler:lite
+    container_name: xianyu-scheduler
+    env_file: ./env/scheduler.env
+    network_mode: host
+    restart: always
+    mem_limit: 128m
+    cpus: '0.3'
+    volumes:
+      - scheduler_logs:/app/scheduler/logs
+      - static_files:/app/static:ro
+    depends_on:
+      backend-web:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:alpine
+    container_name: xianyu-nginx
+    network_mode: host
+    restart: always
+    mem_limit: 32m
+    cpus: '0.2'
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend-dist:/usr/share/nginx/html:ro
+      - static_files:/usr/share/nginx/static:ro
+    depends_on:
+      - backend-web
+
+volumes:
+  backend_web_logs:
+  websocket_logs:
+  scheduler_logs:
+  static_files:
