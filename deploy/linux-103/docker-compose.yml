@@ -3,22 +3,29 @@
 #   1) 复制 env/*.env.example → env/*.env 并填入 TiDB/Upstash 凭据
 #   2) 启动宿主机 stunnel 服务（系统级，不在此 compose 管理）
 #   3) 将 frontend 构建产物放到 ./frontend-dist/
-#   4) docker compose build && docker compose up -d
+#   4) docker compose pull && docker compose up -d
 #
 # 所有容器 network_mode: host，以便直连宿主机 stunnel 的 127.0.0.1:3306 / 127.0.0.1:6380
+#
+# 镜像来源：
+#   使用作者发布的多架构镜像（linux/amd64 + linux/arm64 多 manifest）
+#   ARM 宿主（aarch64）会自动拉取 arm64 镜像，不需要 QEMU。
+#   镜像里带 Playwright Chromium，但只要 AUTO_START_CRAWL_JOBS=false 且
+#   搜索/扫码类 API 通过 nginx 分流到 27，103 不会在运行时加载 Chromium。
+#   磁盘多占 ~1.2GB，但运行时内存占用不变。
+
+x-image-registry: &registry registry.cn-shanghai.aliyuncs.com/zhinian-software
 
 services:
   backend-web:
-    build:
-      context: ../..
-      dockerfile: deploy/dockerfiles/backend-web.Dockerfile.lite
-    image: xianyu-backend-web:lite
+    image: registry.cn-shanghai.aliyuncs.com/zhinian-software/xianyu-backend-web:latest
+    pull_policy: always
     container_name: xianyu-backend-web
     env_file: ./env/backend-web.env
     network_mode: host
     restart: always
-    mem_limit: 256m
-    cpus: '0.5'
+    mem_limit: 384m
+    cpus: '0.8'
     volumes:
       - backend_web_logs:/app/backend-web/logs
       - static_files:/app/static
@@ -27,19 +34,17 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 30s
+      start_period: 60s
 
   websocket:
-    build:
-      context: ../..
-      dockerfile: deploy/dockerfiles/websocket.Dockerfile.lite
-    image: xianyu-websocket:lite
+    image: registry.cn-shanghai.aliyuncs.com/zhinian-software/xianyu-websocket:latest
+    pull_policy: always
     container_name: xianyu-websocket
     env_file: ./env/websocket.env
     network_mode: host
     restart: always
-    mem_limit: 200m
-    cpus: '0.5'
+    mem_limit: 300m
+    cpus: '0.8'
     volumes:
       - websocket_logs:/app/websocket/logs
       - static_files:/app/static
@@ -48,15 +53,13 @@ services:
         condition: service_healthy
 
   scheduler:
-    build:
-      context: ../..
-      dockerfile: deploy/dockerfiles/scheduler.Dockerfile.lite
-    image: xianyu-scheduler:lite
+    image: registry.cn-shanghai.aliyuncs.com/zhinian-software/xianyu-scheduler:latest
+    pull_policy: always
     container_name: xianyu-scheduler
     env_file: ./env/scheduler.env
     network_mode: host
     restart: always
-    mem_limit: 128m
+    mem_limit: 256m
     cpus: '0.3'
     volumes:
       - scheduler_logs:/app/scheduler/logs

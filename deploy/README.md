@@ -142,15 +142,19 @@ nano env/websocket.env
 nano env/scheduler.env
 ```
 
-### 2.6 启动 Docker Compose
+### 2.6 拉取镜像并启动
 
 ```bash
 cd ~/xianyu-auto-reply/deploy/linux-103
-docker compose build               # 首次构建约 5-10 分钟
+docker compose pull                # 从阿里云镜像仓库拉取（支持 amd64 / arm64）
 docker compose up -d
 docker compose ps                  # 全部 running
 docker compose logs -f backend-web # 确认连接 MySQL/Redis 成功（首次会自动建表）
 ```
+
+> **镜像来源：** 默认使用作者在 `registry.cn-shanghai.aliyuncs.com/zhinian-software` 发布的多架构镜像，自动适配 x86_64 和 ARM64 宿主，无需本地编译。
+>
+> **x86_64 宿主可选自建精简版：** 如果想去掉镜像里的 Playwright Chromium（省 ~1.2GB 磁盘），把 `docker-compose.yml` 里三个服务的 `image:` 行换回 `build:` 块指向 `deploy/dockerfiles/*.Dockerfile.lite`，然后 `docker compose build`。ARM 宿主不要这么做（加密 `.so` 是 x86_64 编译，本地 build 出来的 ARM 镜像会 import 失败）。
 
 ### 2.7 确认端口与防火墙
 
